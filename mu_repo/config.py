@@ -31,6 +31,7 @@ class Config(object):
 
     __slots__ = [
         'repos',
+        'urls',
         'serial',
         '_git',
         'current_group',
@@ -41,6 +42,7 @@ class Config(object):
 
     def __init__(self, **kwargs):
         self.repos = []
+        self.urls = {}
         self.serial = False #Default is now in parallel.
         self._git = None
         self.is_sh_command = False
@@ -93,7 +95,11 @@ class Config(object):
 
 
     def items(self):
-        yield ('repos', self.repos)
+        repos = []
+        for r in self.repos:
+            u = self.urls[r]
+            repos.append(r if r == u else r + '->' + u)
+        yield ('repos', repos)
         yield ('serial', str(self.serial))
         if self._git:
             yield ('git', self._git)
@@ -134,7 +140,12 @@ class Config(object):
             if line:
                 name, value = GetField(line)
                 if name == 'repo':
+                    url = value
+                    try:
+                        value, url = value.split('->')
+                    except ValueError: pass
                     config.repos.append(value)
+                    config.urls[value] = url or value
 
                 elif name == 'serial':
                     config.serial = IsTrue(value)

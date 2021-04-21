@@ -51,6 +51,7 @@ def Run(params):
     args = args[1:]
     
     repos = []
+    urls = {}
     other_cmd_line_args = []
     
     if len(args) == 1 and args[0] == '--help':
@@ -61,10 +62,12 @@ def Run(params):
     elif len(args) == 1 and args[0] == '--all':
         Print("Cloning all registered repos...")
         repos = params.config.repos
+        urls = params.config.urls
     else:
         for arg in args:
             if not arg.startswith('-') and not '@' in arg and not ':' in arg:
                 repos.append(arg)
+                urls[arg] = arg
             else:
                 other_cmd_line_args.append(arg)
 
@@ -96,9 +99,14 @@ def Run(params):
     import mu_repo
 
     for repo in repos:
+        if repo == '.':
+            Print('Skipping clone of: ${START_COLOR}%s${RESET_COLOR} because it already exists.' % (repo,))
+            continue
+
+        url = urls[repo]
         for remote in remote_hosts:
             # Check if the directory was created (and is a git repository)
-            if _Clone(remote, repo, params, other_cmd_line_args):
+            if _Clone(remote, repo, url, params, other_cmd_line_args):
                 # Ok, it exists, let's grab the dependencies (if there are any)
                 created_dir = os.path.join('.', repo)
                 new_mu_repo = os.path.join(created_dir, '.mu_repo')
@@ -110,6 +118,8 @@ def Run(params):
                     for new_repo in mu_config.repos:
                         if new_repo in ('.', './', '.\\'):
                             continue
+
+                        url = mu_config.urls[new_repo]
 
                         if not new_repo.startswith('../') and not new_repo.startswith('..\\'):
                             Print('Cannot clone: ${START_COLOR}%s${RESET_COLOR} (currently only works with relative repositories matching: ../name or ..\\name)' % (new_repo,))
@@ -127,7 +137,7 @@ def Run(params):
                                 check_at = [remote] + check_at
 
                                 for remote in check_at:
-                                    if _Clone(remote, new_repo_name, params, other_cmd_line_args):
+                                    if _Clone(remote, new_repo_name, url, params, other_cmd_line_args):
                                         # Ok, worked for this repo
                                         break
                             else:
@@ -137,8 +147,8 @@ def Run(params):
                 break
 
 
-def _Clone(remote, repo, params, other_cmd_line_args):
-    created_dir = os.path.join('.', repo)
+def _Clone(remote, repo, url, params, other_cmd_line_args):
+    created_dir = os.path.join('.', *repo.split('/'))
     if os.path.exists(os.path.join(created_dir, '.git')):
         # If it already exists, bail out!
         Print('Skipping clone of: ${START_COLOR}%s${RESET_COLOR} because it already exists.' % (repo,))
@@ -148,8 +158,11 @@ def _Clone(remote, repo, params, other_cmd_line_args):
     if not remote_path.endswith('/') and not remote_path.endswith('\\'):
         remote_path += '/'
 
+    if not os.path.exists(created_dir):
+        os.makedirs(created_dir)
+
     git = params.config.git
-    ExecuteCommand([git, 'clone', '%s%s' % (remote_path, repo)] + other_cmd_line_args, '.')
+    ExecuteCommand([git, 'clone'] + other_cmd_line_args + ['%s%s' % (remote_path, url), '.'], created_dir)
     if os.path.exists(os.path.join(created_dir, '.git')):
         return True
     return False

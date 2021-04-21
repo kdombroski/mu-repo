@@ -169,6 +169,7 @@ def main(config_file=None, args=None, config=None):
         elif arg == '--help':
             # On a help command, don't execute in multiple repos.
             config.repos = ['.']
+            config.urls['.'] = '.'
             break
 
     else:
@@ -176,9 +177,11 @@ def main(config_file=None, args=None, config=None):
             if '.' == args[0]:
                 del args[0]
                 config.repos.append('.')
+                config.urls['.'] = '.'
             elif os.path.exists('.git'):
                 # Allow it to be used on single git repos too.
                 config.repos.append('.')
+                config.urls['.'] = '.'
 
 
     arg0 = args[0]

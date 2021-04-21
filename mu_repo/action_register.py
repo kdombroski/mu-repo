@@ -1,4 +1,5 @@
 from __future__ import with_statement
+from mu_repo.execute_command import ExecuteGettingStdOutput
 from mu_repo.print_ import Print
 from mu_repo import Status
 import os
@@ -16,6 +17,7 @@ def Run(params):
         Print(msg)
         return Status(msg, False)
     repos = config.repos
+    urls = config.urls
     msgs = []
     args = args[1:]
     join = os.path.join
@@ -62,6 +64,7 @@ def Run(params):
             msg = 'Repository: %s skipped, already registered' % (repo,)
         else:
             repos.append(repo)
+            urls[repo] = RelativeUrl(params, repo)
             msg = 'Repository: %s registered' % (repo,)
 
         if group_repos is not None:
@@ -79,5 +82,18 @@ def Run(params):
 
     return Status('\n'.join(msgs), True, config)
 
+def RelativeUrl(params, repo):
+    git = params.config.git or 'git'
+    remote_hosts = params.config.remote_hosts
+
+    ref = ExecuteGettingStdOutput([git, 'symbolic-ref', '-q', 'HEAD'], repo).decode('utf-8').strip()
+    rem = ExecuteGettingStdOutput([git, 'for-each-ref', '--format=%(upstream:remotename)', ref], repo).decode('utf-8').strip()
+    url = ExecuteGettingStdOutput([git, 'remote', 'get-url', rem], repo).decode('utf-8').strip()
+
+    for remote in remote_hosts:
+        if not remote.endswith('/') and not remote.endswith('\\'):
+            remote += '/'
+        if url.find(remote) == 0:
+            return url.replace(remote, '')
 
 
